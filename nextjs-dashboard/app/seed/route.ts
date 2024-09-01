@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { db } from '@vercel/postgres';
-import { invoices, customers, revenue, users } from '../lib/placeholder-data';
+import { invoices, customers, revenue, users, positions } from '../lib/placeholder-data';
 
 const client = await db.connect();
 
@@ -101,6 +101,30 @@ async function seedRevenue() {
   return insertedRevenue;
 }
 
+async function seedPositions() {
+  // Create the table if it doesn't exist
+  await client.sql`
+    CREATE TABLE IF NOT EXISTS positions (
+      ticker VARCHAR(10) NOT NULL UNIQUE,
+      avg_price DECIMAL(10, 2) NOT NULL,
+      size INT NOT NULL
+    );
+  `;
+
+  // Insert data into the table
+  const insertedPositions = await Promise.all(
+    positions.map(
+      (pos) => client.sql`
+        INSERT INTO positions (ticker, avg_price, size)
+        VALUES (${pos.ticker}, ${pos.avg_price}, ${pos.size})
+        ON CONFLICT (ticker) DO NOTHING;
+      `,
+    ),
+  );
+
+  return insertedPositions;
+}
+
 export async function GET() {
 
     try {
@@ -109,6 +133,7 @@ export async function GET() {
       await seedCustomers();
       await seedInvoices();
       await seedRevenue();
+      await seedPositions();
       await client.sql`COMMIT`;
 
       return Response.json({ message: 'Database seeded successfully' });
